@@ -1,0 +1,43 @@
+{
+  "name": "shoe-mafia",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "worker": "tsx scripts/import-worker.ts",
+    "lint": "eslint",
+    "test": "vitest run",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "setup:admin": "tsx scripts/create-admin.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.3",
+    "bcryptjs": "^3.0.2",
+    "exceljs": "^4.4.0",
+    "next": "16.2.12",
+    "razorpay": "^2.9.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "server-only": "^0.0.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "prisma": "^6.16.3",
+    "tailwindcss": "^4",
+    "tsx": "^4.20.6",
+    "typescript": "^5",
+    "vitest": "^3.2.4"
+  }
+}

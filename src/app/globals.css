@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --forest: #0f3d2e;
+  --forest-deep: #0a2a20;
+  --emerald: #1f7a54;
+  --emerald-bright: #2ea36e;
+  --mint: #e8f6ef;
+  --cream: #f7faf8;
+  --charcoal: #1b1f1d;
+  --ink: #24302b;
+  --muted: #5d6b64;
+  --line: #d7e6dd;
+  --white: #ffffff;
+}
+
+@theme inline {
+  --color-forest: var(--forest);
+  --color-forest-deep: var(--forest-deep);
+  --color-emerald: var(--emerald);
+  --color-emerald-bright: var(--emerald-bright);
+  --color-mint: var(--mint);
+  --color-cream: var(--cream);
+  --color-charcoal: var(--charcoal);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --font-sans: var(--font-outfit);
+  --font-display: var(--font-playfair);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-outfit), system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(31, 122, 84, 0.22);
+}
+
+.display {
+  font-family: var(--font-playfair), Georgia, serif;
+}
+
+.soft-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  box-shadow: 0 10px 30px rgba(15, 61, 46, 0.06);
+}
+
+.empty-state {
+  border: 1px dashed var(--line);
+  background: white;
+  border-radius: 1.25rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.hero-grid {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(46, 163, 110, 0.28), transparent 36%),
+    radial-gradient(circle at 90% 10%, rgba(255, 255, 255, 0.08), transparent 28%),
+    linear-gradient(160deg, #0a2a20 0%, #0f3d2e 52%, #145c40 100%);
+}
+
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  outline: 2px solid rgba(46, 163, 110, 0.45);
+  outline-offset: 2px;
+}

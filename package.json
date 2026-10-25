@@ -14,7 +14,8 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:migrate:dev": "prisma migrate dev",
     "db:push": "prisma db push",
-    "setup:admin": "tsx scripts/create-admin.ts"
+    "setup:admin": "tsx scripts/create-admin.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.16.3",

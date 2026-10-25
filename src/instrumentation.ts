@@ -1,6 +1,7 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    if (process.env.IMPORT_WORKER !== "0") {
+    // Background import polling is for long-running Node hosts (Render/VPS), not Vercel serverless.
+    if (process.env.IMPORT_WORKER !== "0" && !process.env.VERCEL) {
       const { startImportWorker } = await import("@/lib/import/process");
       startImportWorker();
     }

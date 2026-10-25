@@ -22,18 +22,21 @@ export default async function HomePage() {
   let testimonials;
   let categories;
   try {
-    [banners, homeProducts, productTotal, testimonials, categories] = await Promise.all([
-    prisma.banner.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-    prisma.product.findMany({
+    // Sequential queries use one connection (important on Vercel + small MySQL plans).
+    banners = await prisma.banner.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } });
+    homeProducts = await prisma.product.findMany({
       where: { status: "ACTIVE" },
       include: { images: { take: 1, orderBy: { sortOrder: "asc" } }, variations: true },
       orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
       take: HOME_PRODUCT_LIMIT,
-    }),
-    prisma.product.count({ where: { status: "ACTIVE" } }),
-    prisma.testimonial.findMany({ where: { published: true }, orderBy: { sortOrder: "asc" }, take: 6 }),
-    prisma.category.findMany({ orderBy: { name: "asc" } }),
-    ]);
+    });
+    productTotal = await prisma.product.count({ where: { status: "ACTIVE" } });
+    testimonials = await prisma.testimonial.findMany({
+      where: { published: true },
+      orderBy: { sortOrder: "asc" },
+      take: 6,
+    });
+    categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
   } catch (error) {
     return <DatabaseSetupPanel detail={describeDatabaseError(error)} />;
   }

@@ -22,9 +22,21 @@ export function isPrismaConnectionError(error: unknown): boolean {
   );
 }
 
+export function isTooManyConnectionsError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Too many connections") || message.includes("1040");
+}
+
 export function describeDatabaseError(error: unknown): string {
   const config = databaseConfigHint();
   if (config) return config;
+  if (isTooManyConnectionsError(error)) {
+    return (
+      "MySQL rejected new connections (too many open at once). On Vercel this is common: keep " +
+      "connection_limit=1 on DATABASE_URL, redeploy, and if needed raise max_connections on your MySQL plan " +
+      "or use a managed MySQL with pooling."
+    );
+  }
   if (isPrismaConnectionError(error)) {
     return "The server cannot connect to MySQL. Check DATABASE_URL (host, port, user, password), allow remote access on your database, and run migrations.";
   }

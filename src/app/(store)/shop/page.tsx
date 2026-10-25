@@ -37,12 +37,8 @@ export default async function ShopPage({
   if (Object.keys(priceFilter).length) variationSome.price = priceFilter;
   if (Object.keys(variationSome).length) where.variations = { some: variationSome };
 
-  let total: number;
-  let items: Awaited<ReturnType<typeof findCatalogProducts>>;
-  let categories: Awaited<ReturnType<typeof prisma.category.findMany>>;
-  let sizes: Awaited<ReturnType<typeof prisma.productVariation.findMany>>;
   try {
-    [total, items, categories, sizes] = await Promise.all([
+    const [total, items, categories, sizes] = await Promise.all([
       prisma.product.count({ where }),
       findCatalogProducts({
         where,
@@ -54,12 +50,9 @@ export default async function ShopPage({
       prisma.category.findMany({ orderBy: { name: "asc" } }),
       prisma.productVariation.findMany({ distinct: ["size"], select: { size: true }, orderBy: { size: "asc" } }),
     ]);
-  } catch (error) {
-    return <DatabaseSetupPanel detail={describeDatabaseError(error)} />;
-  }
-  const pages = Math.max(1, Math.ceil(total / pageSize));
+    const pages = Math.max(1, Math.ceil(total / pageSize));
 
-  return (
+    return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <h1 className="display text-4xl text-forest">Shop</h1>
       <form className="mt-6 grid gap-3 rounded-2xl border border-line bg-white p-4 md:grid-cols-6">
@@ -110,5 +103,8 @@ export default async function ShopPage({
         </div>
       ) : null}
     </div>
-  );
+    );
+  } catch (error) {
+    return <DatabaseSetupPanel detail={describeDatabaseError(error)} />;
+  }
 }

@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { ProductCard } from "@/components/store/ProductCard";
 import { findCatalogProducts } from "@/lib/catalog";
 import { Prisma } from "@prisma/client";
+import { DatabaseSetupPanel } from "@/components/store/DatabaseSetupPanel";
+import { databaseConfigHint, describeDatabaseError } from "@/lib/database-issue";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +12,11 @@ export default async function ShopPage({
 }: {
   searchParams: Promise<{ q?: string; category?: string; size?: string; sort?: string; page?: string; min?: string; max?: string }>;
 }) {
+  const configHint = databaseConfigHint();
+  if (configHint) {
+    return <DatabaseSetupPanel detail={configHint} />;
+  }
+
   const params = await searchParams;
   const page = Math.max(1, Number(params.page ?? 1));
   const pageSize = 12;
@@ -30,18 +37,26 @@ export default async function ShopPage({
   if (Object.keys(priceFilter).length) variationSome.price = priceFilter;
   if (Object.keys(variationSome).length) where.variations = { some: variationSome };
 
-  const [total, items, categories, sizes] = await Promise.all([
-    prisma.product.count({ where }),
-    findCatalogProducts({
-      where,
-      sort: params.sort,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      include: { images: { take: 1, orderBy: { sortOrder: "asc" as const } }, variations: true },
-    }),
-    prisma.category.findMany({ orderBy: { name: "asc" } }),
-    prisma.productVariation.findMany({ distinct: ["size"], select: { size: true }, orderBy: { size: "asc" } }),
-  ]);
+  let total: number;
+  let items: Awaited<ReturnType<typeof findCatalogProducts>>;
+  let categories: Awaited<ReturnType<typeof prisma.category.findMany>>;
+  let sizes: Awaited<ReturnType<typeof prisma.productVariation.findMany>>;
+  try {
+    [total, items, categories, sizes] = await Promise.all([
+      prisma.product.count({ where }),
+      findCatalogProducts({
+        where,
+        sort: params.sort,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { images: { take: 1, orderBy: { sortOrder: "asc" as const } }, variations: true },
+      }),
+      prisma.category.findMany({ orderBy: { name: "asc" } }),
+      prisma.productVariation.findMany({ distinct: ["size"], select: { size: true }, orderBy: { size: "asc" } }),
+    ]);
+  } catch (error) {
+    return <DatabaseSetupPanel detail={describeDatabaseError(error)} />;
+  }
   const pages = Math.max(1, Math.ceil(total / pageSize));
 
   return (

@@ -15,7 +15,9 @@ export default function StoreError({
     message.includes("P1001") ||
     message.includes("DATABASE_URL") ||
     message.includes("Invalid") ||
-    message.includes("connect");
+    message.includes("connect") ||
+    message.includes("Server Components render") ||
+    message.includes("omitted in production");
 
   return (
     <div className="mx-auto max-w-lg px-4 py-20 text-center">

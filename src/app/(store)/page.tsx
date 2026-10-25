@@ -3,13 +3,26 @@ import { prisma } from "@/lib/db";
 import { STORE } from "@/lib/store";
 import { ProductCard } from "@/components/store/ProductCard";
 import { Logo } from "@/components/brand/Logo";
+import { DatabaseSetupPanel } from "@/components/store/DatabaseSetupPanel";
+import { databaseConfigHint, describeDatabaseError } from "@/lib/database-issue";
 
 export const dynamic = "force-dynamic";
 
 const HOME_PRODUCT_LIMIT = 10;
 
 export default async function HomePage() {
-  const [banners, homeProducts, productTotal, testimonials, categories] = await Promise.all([
+  const configHint = databaseConfigHint();
+  if (configHint) {
+    return <DatabaseSetupPanel detail={configHint} />;
+  }
+
+  let banners;
+  let homeProducts;
+  let productTotal;
+  let testimonials;
+  let categories;
+  try {
+    [banners, homeProducts, productTotal, testimonials, categories] = await Promise.all([
     prisma.banner.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     prisma.product.findMany({
       where: { status: "ACTIVE" },
@@ -20,7 +33,10 @@ export default async function HomePage() {
     prisma.product.count({ where: { status: "ACTIVE" } }),
     prisma.testimonial.findMany({ where: { published: true }, orderBy: { sortOrder: "asc" }, take: 6 }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
-  ]);
+    ]);
+  } catch (error) {
+    return <DatabaseSetupPanel detail={describeDatabaseError(error)} />;
+  }
 
   const hero = banners[0];
 

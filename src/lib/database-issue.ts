@@ -32,9 +32,15 @@ export function describeDatabaseError(error: unknown): string {
   if (config) return config;
   if (isTooManyConnectionsError(error)) {
     return (
-      "MySQL rejected new connections (too many open at once). On Vercel this is common: keep " +
-      "connection_limit=1 on DATABASE_URL, redeploy, and if needed raise max_connections on your MySQL plan " +
-      "or use a managed MySQL with pooling."
+      "MySQL rejected new connections (too many open at once). Use connection_limit=2 on Vercel, " +
+      "wait a minute, and redeploy."
+    );
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("connection pool") || message.includes("pool timeout")) {
+    return (
+      "Database connection pool timed out. For Aiven on Vercel use sslaccept=accept_invalid_certs " +
+      "(the app sets this automatically), correct host/port, and DATABASE_URL pointing to defaultdb or shoe_mafia."
     );
   }
   if (isPrismaConnectionError(error)) {

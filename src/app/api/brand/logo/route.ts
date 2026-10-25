@@ -4,9 +4,10 @@ import path from "path";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const root = process.cwd();
   const candidates = [
-    path.join(process.cwd(), "public", "brand", "logo.png"),
-    path.join(process.cwd(), "public", "logo.png"),
+    path.join(/* turbopackIgnore: true */ root, "public", "brand", "logo.png"),
+    path.join(/* turbopackIgnore: true */ root, "public", "logo.png"),
   ];
   for (const filePath of candidates) {
     try {

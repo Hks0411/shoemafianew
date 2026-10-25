@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && node scripts/next-build.mjs",
     "start": "next start",
+    "start:production": "prisma migrate deploy && next start",
     "worker": "tsx scripts/import-worker.ts",
     "lint": "eslint",
     "test": "vitest run",

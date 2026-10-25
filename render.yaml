@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: shoe-mafia
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:production
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_SESSION_SECRET
+        generateValue: true
+      - key: APP_URL
+        sync: false

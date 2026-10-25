@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   },
   description: `Shop footwear at ${STORE.name}, ${STORE.address}. Call ${STORE.phone}.`,
   icons: {
-    icon: [{ url: "/brand/logo.png", type: "image/png" }],
+    icon: "/brand/logo.png",
     apple: "/brand/logo.png",
   },
 };

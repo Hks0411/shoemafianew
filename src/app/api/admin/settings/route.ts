@@ -17,8 +17,8 @@ export async function PUT(request: Request) {
   const next = {
     ...DEFAULT_SETTINGS,
     ...(await getStoreSettings()),
-    shippingCharge: Number(body.shippingCharge ?? 0),
-    freeShippingAbove: Number(body.freeShippingAbove ?? 0),
+    codCourierCharge: Number(body.codCourierCharge ?? DEFAULT_SETTINGS.codCourierCharge),
+    prepaidCourierCharge: Number(body.prepaidCourierCharge ?? DEFAULT_SETTINGS.prepaidCourierCharge),
     lowStockThreshold: Number(body.lowStockThreshold ?? 3),
     paymentsEnabled: Boolean(body.paymentsEnabled),
   };

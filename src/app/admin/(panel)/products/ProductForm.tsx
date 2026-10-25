@@ -36,6 +36,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [variations, setVariations] = useState<Variation[]>([emptyVariation()]);
   const [images, setImages] = useState<Image[]>([]);
+  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -105,18 +106,33 @@ export function ProductForm({ productId }: { productId?: string }) {
       setError(data.error || "Could not save product");
       return;
     }
+    const savedId = (productId || data.id) as string;
+    const queued = pendingPhotos;
+    if (queued.length) {
+      setMessage("Saved — uploading photos…");
+      for (const file of queued) {
+        const form = new FormData();
+        form.set("file", file);
+        form.set("productId", savedId);
+        const up = await fetch("/api/admin/upload", { method: "POST", body: form });
+        const uploaded = await up.json();
+        if (up.ok) setImages((current) => [...current, uploaded]);
+      }
+      setPendingPhotos([]);
+    }
     setMessage("Saved");
-    if (!productId) router.replace(`/admin/products/${data.id}`);
+    if (!productId) router.replace(`/admin/products/${savedId}`);
   }
 
-  async function uploadPhoto(file: File) {
-    if (!productId) {
-      setError("Save the product first, then upload photographs.");
+  async function uploadPhoto(file: File, targetProductId?: string) {
+    const id = targetProductId || productId;
+    if (!id) {
+      setPendingPhotos((current) => [...current, file]);
       return;
     }
     const form = new FormData();
     form.set("file", file);
-    form.set("productId", productId);
+    form.set("productId", id);
     const res = await fetch("/api/admin/upload", { method: "POST", body: form });
     const data = await res.json();
     if (!res.ok) {
@@ -209,13 +225,29 @@ export function ProductForm({ productId }: { productId?: string }) {
       <section className="soft-card p-6">
         <h2 className="font-semibold text-forest">Photographs</h2>
         <p className="mt-1 text-sm text-muted">
-          Upload here after saving, or use{" "}
+          Choose photos anytime — new products upload to MySQL when you save. Or use{" "}
           <a href="/admin/photos-by-bcn" className="text-emerald underline">
             Photos by BCN
           </a>{" "}
           with any size barcode for this product.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
+          {pendingPhotos.map((file, index) => (
+            <div key={`${file.name}-${index}`} className="relative h-24 w-24 overflow-hidden rounded-xl ring-2 ring-emerald/40">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-cover" />
+              <span className="absolute bottom-0 left-0 right-0 bg-forest/80 px-1 text-center text-[10px] text-white">
+                Queued
+              </span>
+              <button
+                type="button"
+                onClick={() => setPendingPhotos((current) => current.filter((_, i) => i !== index))}
+                className="absolute right-1 top-1 rounded bg-white/90 px-1 text-xs"
+              >
+                ×
+              </button>
+            </div>
+          ))}
           {images.map((image) => (
             <div key={image.id} className="relative h-24 w-24 overflow-hidden rounded-xl">
               {/* eslint-disable-next-line @next/next/no-img-element */}

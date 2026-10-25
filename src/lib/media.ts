@@ -65,7 +65,7 @@ export async function createStoredImage(
   return db.storedImage.create({
     data: {
       mimeType,
-      data: buffer,
+      data: new Uint8Array(buffer),
       width: width ?? null,
       height: height ?? null,
     },

@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/db";
 import { effectivePrice, fromDecimal } from "@/lib/money";
 import { getStoreSettings } from "@/lib/settings";
+import { courierChargeForMethod } from "@/lib/shipping";
 export type CheckoutItem = { variationId: string; quantity: number };
 
 export function nextOrderNumber() {
@@ -69,8 +70,7 @@ export async function createOrderFromItems(input: {
       }
     }
 
-    const shipping =
-      settings.freeShippingAbove > 0 && subtotal >= settings.freeShippingAbove ? 0 : settings.shippingCharge;
+    const shipping = courierChargeForMethod(method, settings);
     const total = subtotal + shipping;
     const orderNumber = nextOrderNumber();
 

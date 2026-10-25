@@ -6,8 +6,8 @@ import { razorpayConfigured } from "@/lib/razorpay";
 export async function GET() {
   const settings = await getStoreSettings();
   return NextResponse.json({
-    shippingCharge: settings.shippingCharge,
-    freeShippingAbove: settings.freeShippingAbove,
+    codCourierCharge: settings.codCourierCharge,
+    prepaidCourierCharge: settings.prepaidCourierCharge,
     paymentsEnabled: settings.paymentsEnabled && razorpayConfigured(),
     store: STORE,
   });

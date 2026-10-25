@@ -9,7 +9,21 @@ export function Footer() {
         <div>
           <Logo className="h-16 w-16" />
           <p className="mt-4 max-w-sm text-sm text-white/75">{STORE.address}</p>
-          <p className="mt-2 text-sm">{STORE.phone}</p>
+          <p className="mt-2 text-sm">
+            <a href={`tel:${STORE.phoneTel}`} className="hover:text-white">
+              {STORE.phone}
+            </a>
+          </p>
+          <p className="mt-2 text-sm">
+            <a href={`mailto:${STORE.email}`} className="hover:text-white">
+              {STORE.email}
+            </a>
+          </p>
+          <p className="mt-2 text-sm">
+            <a href={STORE.instagram} target="_blank" rel="noopener noreferrer" className="hover:text-white">
+              Instagram {STORE.instagramHandle}
+            </a>
+          </p>
         </div>
         <div className="text-sm">
           <p className="mb-3 font-semibold">Shop</p>

@@ -8,6 +8,18 @@ export default function ContactPage() {
       <p className="mt-2">
         Phone: <a className="text-emerald" href={`tel:${STORE.phoneTel}`}>{STORE.phone}</a>
       </p>
+      <p className="mt-2">
+        Email:{" "}
+        <a className="text-emerald" href={`mailto:${STORE.email}`}>
+          {STORE.email}
+        </a>
+      </p>
+      <p className="mt-2">
+        Instagram:{" "}
+        <a className="text-emerald" href={STORE.instagram} target="_blank" rel="noopener noreferrer">
+          {STORE.instagramHandle}
+        </a>
+      </p>
       <iframe
         title="SHOE MAFIA map"
         className="mt-8 h-80 w-full rounded-3xl border-0"

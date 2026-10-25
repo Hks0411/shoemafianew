@@ -71,6 +71,7 @@ export default function AccountPage() {
 
   async function saveProfile(event: FormEvent) {
     event.preventDefault();
+    if (!customer) return;
     setBusy(true);
     setError("");
     setMessage("");

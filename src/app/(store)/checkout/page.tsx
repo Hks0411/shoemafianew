@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { cartSubtotal, readCart, writeCart, type CartItem } from "@/lib/cart";
+import { readCart, writeCart, type CartItem } from "@/lib/cart";
 import { formatInr } from "@/lib/money";
 import { STORE } from "@/lib/store";
+import { courierChargeForMethod, type CheckoutPaymentMethod } from "@/lib/shipping";
 
 declare global {
   interface Window {
@@ -27,10 +28,9 @@ type CustomerSession = {
 export default function CheckoutPage() {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
-  const [shippingCharge, setShippingCharge] = useState(0);
-  const [freeShippingAbove, setFreeShippingAbove] = useState(0);
+  const [courierRates, setCourierRates] = useState({ cod: 200, prepaid: 150 });
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
-  const [method, setMethod] = useState<"COD" | "RAZORPAY">("COD");
+  const [method, setMethod] = useState<CheckoutPaymentMethod>("COD");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [customer, setCustomer] = useState<CustomerSession | null>(null);
@@ -50,8 +50,10 @@ export default function CheckoutPage() {
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => {
-        setShippingCharge(Number(data.shippingCharge || 0));
-        setFreeShippingAbove(Number(data.freeShippingAbove || 0));
+        setCourierRates({
+          cod: Number(data.codCourierCharge ?? 200),
+          prepaid: Number(data.prepaidCourierCharge ?? 150),
+        });
         setPaymentsEnabled(Boolean(data.paymentsEnabled));
       })
       .catch(() => undefined);
@@ -79,8 +81,12 @@ export default function CheckoutPage() {
   }, [router]);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = freeShippingAbove > 0 && subtotal >= freeShippingAbove ? 0 : shippingCharge;
-  const total = subtotal + shipping;
+  const checkoutMethod: CheckoutPaymentMethod = paymentsEnabled ? method : "COD";
+  const courier = courierChargeForMethod(checkoutMethod, {
+    codCourierCharge: courierRates.cod,
+    prepaidCourierCharge: courierRates.prepaid,
+  });
+  const total = courier + subtotal;
 
   async function placeOrder(event: FormEvent) {
     event.preventDefault();
@@ -260,11 +266,12 @@ export default function CheckoutPage() {
         />
         <label className="flex items-center gap-2 text-sm">
           <input type="radio" checked={method === "COD"} onChange={() => setMethod("COD")} />
-          Cash on delivery
+          Cash on delivery · courier {formatInr(courierRates.cod)} + shoes
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="radio" checked={method === "RAZORPAY"} onChange={() => setMethod("RAZORPAY")} disabled={!paymentsEnabled} />
-          Razorpay {paymentsEnabled ? "" : "(not activated yet)"}
+          Prepaid (Razorpay) · courier {formatInr(courierRates.prepaid)} extra
+          {paymentsEnabled ? "" : " (not activated yet)"}
         </label>
         {error ? <p className="text-sm text-red-700">{error}</p> : null}
         <button disabled={busy} className="w-full rounded-full bg-forest py-3 text-white">
@@ -283,8 +290,8 @@ export default function CheckoutPage() {
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-sm">Subtotal {formatInr(cartSubtotal())}</p>
-        <p className="text-sm">Shipping {formatInr(shipping)}</p>
+        <p className="mt-4 text-sm">Courier charge {formatInr(courier)}</p>
+        <p className="text-sm">Shoes subtotal {formatInr(subtotal)}</p>
         <p className="mt-2 text-lg font-semibold">Payable {formatInr(total)}</p>
       </aside>
     </div>

@@ -6,20 +6,18 @@ import { Logo } from "@/components/brand/Logo";
 
 export const dynamic = "force-dynamic";
 
+const HOME_PRODUCT_LIMIT = 10;
+
 export default async function HomePage() {
-  const [banners, featured, newest, testimonials, categories] = await Promise.all([
+  const [banners, homeProducts, productTotal, testimonials, categories] = await Promise.all([
     prisma.banner.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-    prisma.product.findMany({
-      where: { featured: true, status: "ACTIVE" },
-      include: { images: { take: 1, orderBy: { sortOrder: "asc" } }, variations: true },
-      take: 8,
-    }),
     prisma.product.findMany({
       where: { status: "ACTIVE" },
       include: { images: { take: 1, orderBy: { sortOrder: "asc" } }, variations: true },
-      orderBy: { createdAt: "desc" },
-      take: 8,
+      orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+      take: HOME_PRODUCT_LIMIT,
     }),
+    prisma.product.count({ where: { status: "ACTIVE" } }),
     prisma.testimonial.findMany({ where: { published: true }, orderBy: { sortOrder: "asc" }, take: 6 }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
   ]);
@@ -74,31 +72,44 @@ export default async function HomePage() {
       ) : null}
 
       <section className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-6 flex items-end justify-between">
-          <h2 className="display text-3xl text-forest">New arrivals</h2>
-          <Link href="/shop" className="text-sm text-emerald">View all</Link>
-        </div>
-        {newest.length ? (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {newest.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="display text-3xl text-forest">Shop shoes</h2>
+            <p className="mt-1 text-sm text-muted">
+              Showing {homeProducts.length} of {productTotal} products
+            </p>
           </div>
+          {productTotal > HOME_PRODUCT_LIMIT ? (
+            <Link
+              href="/shop"
+              className="rounded-full bg-forest px-5 py-2.5 text-sm font-medium text-white"
+            >
+              Shop more
+            </Link>
+          ) : null}
+        </div>
+        {homeProducts.length ? (
+          <>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {homeProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+            {productTotal > HOME_PRODUCT_LIMIT ? (
+              <div className="mt-10 text-center">
+                <Link
+                  href="/shop"
+                  className="inline-flex rounded-full border border-line bg-white px-8 py-3 font-medium text-forest shadow-sm hover:border-emerald"
+                >
+                  Shop more — see all {productTotal} products
+                </Link>
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="empty-state">The catalog is empty until products are added or imported from Busy.</div>
         )}
       </section>
-
-      {featured.length ? (
-        <section className="mx-auto max-w-6xl px-4 py-8">
-          <h2 className="display text-3xl text-forest">Featured</h2>
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {featured.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <section className="bg-mint/70">
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 md:grid-cols-2">

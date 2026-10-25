@@ -15,42 +15,65 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  async function postJson(path: string, body: Record<string, string>) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 25_000);
+    try {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; displayOtp?: string };
+      return { res, data };
+    } catch (err) {
+      const aborted = err instanceof DOMException && err.name === "AbortError";
+      return {
+        res: null,
+        data: {
+          error: aborted
+            ? "Request timed out. The server may be waiting on the database — refresh and try again in a minute."
+            : "Network error. Check your connection and try again.",
+        },
+      };
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
   async function sendOtp(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError("");
-    const res = await fetch("/api/auth/otp/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      setError(data.error || "Could not send OTP");
-      return;
+    try {
+      const { res, data } = await postJson("/api/auth/otp/send", { phone });
+      if (!res?.ok) {
+        setError(data.error || "Could not send OTP");
+        return;
+      }
+      setDisplayOtp(data.displayOtp || "");
+      setOtp(data.displayOtp || "");
+      setStep("otp");
+    } finally {
+      setBusy(false);
     }
-    setDisplayOtp(data.displayOtp || "");
-    setOtp(data.displayOtp || "");
-    setStep("otp");
   }
 
   async function verifyOtp(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError("");
-    const res = await fetch("/api/auth/otp/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, otp }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      setError(data.error || "Could not verify OTP");
-      return;
+    try {
+      const { res, data } = await postJson("/api/auth/otp/verify", { phone, otp });
+      if (!res?.ok) {
+        setError(data.error || "Could not verify OTP");
+        return;
+      }
+      router.replace(next);
+    } finally {
+      setBusy(false);
     }
-    router.replace(next);
   }
 
   return (

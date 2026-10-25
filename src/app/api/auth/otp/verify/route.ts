@@ -4,6 +4,9 @@ import { prisma } from "@/lib/db";
 import { normalizePhone, verifyCustomerOtp } from "@/lib/auth/customer-otp";
 import { setCustomerSession } from "@/lib/auth/customer-session";
 import { rateLimit, clientKey } from "@/lib/security/rate-limit";
+import { describeDatabaseError } from "@/lib/database-issue";
+
+export const maxDuration = 30;
 
 const schema = z.object({
   phone: z.string().min(10).max(15),
@@ -20,26 +23,31 @@ export async function POST(request: Request) {
   const phone = normalizePhone(parsed.data.phone);
   if (!phone) return NextResponse.json({ error: "Invalid mobile number" }, { status: 400 });
 
-  const ok = await verifyCustomerOtp(phone, parsed.data.otp);
-  if (!ok) return NextResponse.json({ error: "OTP is wrong or expired. Send a new one." }, { status: 401 });
+  try {
+    const ok = await verifyCustomerOtp(phone, parsed.data.otp);
+    if (!ok) return NextResponse.json({ error: "OTP is wrong or expired. Send a new one." }, { status: 401 });
 
-  const customer = await prisma.customer.upsert({
-    where: { phone },
-    create: { phone, name: "" },
-    update: {},
-  });
+    const customer = await prisma.customer.upsert({
+      where: { phone },
+      create: { phone, name: "" },
+      update: {},
+    });
 
-  await setCustomerSession(customer.id, phone);
+    await setCustomerSession(customer.id, phone);
 
-  return NextResponse.json({
-    ok: true,
-    customer: {
-      id: customer.id,
-      phone: customer.phone,
-      name: customer.name,
-      email: customer.email,
-      addressLocked: customer.addressLocked,
-      hasAddress: Boolean(customer.addressLine && customer.pincode),
-    },
-  });
+    return NextResponse.json({
+      ok: true,
+      customer: {
+        id: customer.id,
+        phone: customer.phone,
+        name: customer.name,
+        email: customer.email,
+        addressLocked: customer.addressLocked,
+        hasAddress: Boolean(customer.addressLine && customer.pincode),
+      },
+    });
+  } catch (error) {
+    console.error("OTP verify failed", error);
+    return NextResponse.json({ error: describeDatabaseError(error) }, { status: 503 });
+  }
 }

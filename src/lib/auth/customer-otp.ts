@@ -21,14 +21,13 @@ export function generateOtpCode() {
 export async function createCustomerOtp(phone: string) {
   const code = generateOtpCode();
   const expiresAt = new Date(Date.now() + OTP_TTL_MS);
-  await prisma.customerOtp.deleteMany({ where: { phone } });
-  await prisma.customerOtp.create({
-    data: {
-      phone,
-      codeHash: hashOtp(phone, code),
-      expiresAt,
-    },
-  });
+  const codeHash = hashOtp(phone, code);
+  await prisma.$transaction([
+    prisma.customerOtp.deleteMany({ where: { phone } }),
+    prisma.customerOtp.create({
+      data: { phone, codeHash, expiresAt },
+    }),
+  ]);
   return { code, expiresAt };
 }
 

@@ -3,6 +3,8 @@ import { adminOr401 } from "@/lib/auth/guard";
 import { prisma } from "@/lib/db";
 import { attachProductImage, createStoredImage, databaseSetupHint, mediaUrl, validateImage } from "@/lib/media";
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const { admin, response } = await adminOr401();
   if (!admin) return response;

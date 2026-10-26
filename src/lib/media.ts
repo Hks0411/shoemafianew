@@ -20,8 +20,8 @@ export function sniffImageMime(buffer: Buffer) {
 }
 
 export function validateImage(buffer: Buffer, declaredType: string | null) {
-  if (buffer.length > 8 * 1024 * 1024) {
-    throw new Error("Image must be 8MB or smaller");
+  if (buffer.length > 3 * 1024 * 1024) {
+    throw new Error("Image must be 3MB or smaller (resize large screenshots before upload)");
   }
   const sniffed = sniffImageMime(buffer);
   if (!sniffed || !ALLOWED.has(sniffed)) {

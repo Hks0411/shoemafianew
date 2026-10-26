@@ -5,6 +5,12 @@ import { adminOr401 } from "@/lib/auth/guard";
 import { prisma } from "@/lib/db";
 import { uniqueSlug } from "@/lib/slug";
 import { audit } from "@/lib/audit";
+import {
+  duplicateBarcodesInList,
+  findBarcodeConflict,
+  formatProductSaveError,
+  normalizeBarcode,
+} from "@/lib/product-barcode";
 
 const variationSchema = z.object({
   size: z.string().min(1).max(20),
@@ -69,6 +75,8 @@ export async function GET(request: Request) {
   return NextResponse.json({ total, page, pageSize, items });
 }
 
+export const maxDuration = 30;
+
 export async function POST(request: Request) {
   const { admin, response } = await adminOr401();
   if (!admin) return response;
@@ -77,6 +85,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Check the product details and add at least one size." }, { status: 400 });
   }
 
+  const normalizedVariations = parsed.data.variations.map((v) => ({
+    ...v,
+    barcode: normalizeBarcode(v.barcode),
+    sku: v.sku?.trim() || null,
+  }));
+  const barcodes = normalizedVariations.map((v) => v.barcode);
+  const dup = duplicateBarcodesInList(barcodes);
+  if (dup) {
+    return NextResponse.json({ error: `Barcode “${dup}” is used twice on this product.` }, { status: 400 });
+  }
+  const conflict = await findBarcodeConflict(barcodes);
+  if (conflict) {
+    return NextResponse.json({ error: conflict }, { status: 409 });
+  }
+
+  try {
   const product = await prisma.product.create({
     data: {
       name: parsed.data.name,
@@ -87,10 +111,10 @@ export async function POST(request: Request) {
       featured: parsed.data.featured ?? false,
       categoryId: parsed.data.categoryId || null,
       variations: {
-        create: parsed.data.variations.map((v) => ({
+        create: normalizedVariations.map((v) => ({
           size: v.size,
-          sku: v.sku || null,
-          barcode: v.barcode || null,
+          sku: v.sku,
+          barcode: v.barcode,
           price: v.price,
           salePrice: v.salePrice ?? null,
           stock: v.stock,
@@ -103,4 +127,8 @@ export async function POST(request: Request) {
   });
   await audit({ adminId: admin.id, action: "create", entity: "Product", entityId: product.id, detail: { name: product.name } });
   return NextResponse.json(product);
+  } catch (error) {
+    console.error("Create product failed", error);
+    return NextResponse.json({ error: formatProductSaveError(error) }, { status: 409 });
+  }
 }

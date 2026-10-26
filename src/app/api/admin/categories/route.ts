@@ -6,7 +6,12 @@ import { slugify } from "@/lib/slug";
 export async function GET() {
   const { admin, response } = await adminOr401();
   if (!admin) return response;
-  return NextResponse.json(await prisma.category.findMany({ orderBy: { name: "asc" } }));
+  try {
+    return NextResponse.json(await prisma.category.findMany({ orderBy: { name: "asc" } }));
+  } catch (error) {
+    console.error("List categories failed", error);
+    return NextResponse.json({ error: "Could not load categories" }, { status: 503 });
+  }
 }
 
 export async function POST(request: Request) {

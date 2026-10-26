@@ -16,6 +16,25 @@ type Variation = {
 type Category = { id: string; name: string };
 type Image = { id: string; url: string };
 
+const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
+const REQUEST_TIMEOUT_MS = 90_000;
+
+async function fetchWithTimeout(input: RequestInfo, init?: RequestInit) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+function photoSizeError(file: File) {
+  if (file.size <= MAX_PHOTO_BYTES) return null;
+  const mb = (file.size / (1024 * 1024)).toFixed(1);
+  return `“${file.name}” is ${mb}MB. Use an image under 3MB (crop or export as JPG).`;
+}
+
 const emptyVariation = (): Variation => ({
   size: "",
   sku: "",
@@ -43,13 +62,31 @@ export function ProductForm({ productId }: { productId?: string }) {
 
   useEffect(() => {
     fetch("/api/admin/categories")
-      .then((res) => res.json())
-      .then(setCategories)
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) {
+          setCategories([]);
+          if (!res.ok) {
+            const msg = data && typeof data === "object" && "error" in data ? String(data.error) : "Could not load categories";
+            setError(res.status === 401 ? "Admin session expired — log in again at /admin/login" : msg);
+          }
+          return;
+        }
+        setCategories(data);
+      })
       .catch(() => setCategories([]));
     if (!productId) return;
     fetch(`/api/admin/products/${productId}`)
-      .then((res) => res.json())
-      .then((product) => {
+      .then(async (res) => {
+        const product = await res.json().catch(() => null);
+        if (!res.ok || !product || typeof product !== "object" || !("name" in product)) {
+          setError(
+            res.status === 401
+              ? "Admin session expired — log in again at /admin/login"
+              : "Could not load this product",
+          );
+          return;
+        }
         setName(product.name);
         setDescription(product.description || "");
         setItemCode(product.itemCode || "");
@@ -68,8 +105,19 @@ export function ProductForm({ productId }: { productId?: string }) {
             stock: String(v.stock),
           })),
         );
-      });
+      })
+      .catch(() => setError("Could not load this product"));
   }, [productId]);
+
+  function queuePhoto(file: File) {
+    const sizeErr = photoSizeError(file);
+    if (sizeErr) {
+      setError(sizeErr);
+      return;
+    }
+    setError("");
+    setPendingPhotos((current) => [...current, file]);
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -95,51 +143,86 @@ export function ProductForm({ productId }: { productId?: string }) {
           stock: Number(v.stock || 0),
         })),
     };
-    const res = await fetch(productId ? `/api/admin/products/${productId}` : "/api/admin/products", {
-      method: productId ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      setError(data.error || "Could not save product");
-      return;
-    }
-    const savedId = (productId || data.id) as string;
-    const queued = pendingPhotos;
-    if (queued.length) {
-      setMessage("Saved — uploading photos…");
-      for (const file of queued) {
-        const form = new FormData();
-        form.set("file", file);
-        form.set("productId", savedId);
-        const up = await fetch("/api/admin/upload", { method: "POST", body: form });
-        const uploaded = await up.json();
-        if (up.ok) setImages((current) => [...current, uploaded]);
+    try {
+      const res = await fetchWithTimeout(productId ? `/api/admin/products/${productId}` : "/api/admin/products", {
+        method: productId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok) {
+        setError(data.error || "Could not save product");
+        return;
       }
-      setPendingPhotos([]);
+      const savedId = (productId || data.id) as string;
+      const queued = [...pendingPhotos];
+      let uploadErrors = 0;
+
+      if (queued.length) {
+        setMessage(`Product saved — uploading ${queued.length} photo(s)…`);
+        for (const file of queued) {
+          const form = new FormData();
+          form.set("file", file);
+          form.set("productId", savedId);
+          try {
+            const up = await fetchWithTimeout("/api/admin/upload", { method: "POST", body: form });
+            const uploaded = (await up.json().catch(() => ({}))) as Image & { error?: string };
+            if (up.ok) setImages((current) => [...current, uploaded]);
+            else uploadErrors += 1;
+          } catch {
+            uploadErrors += 1;
+          }
+        }
+        setPendingPhotos([]);
+      }
+
+      if (uploadErrors) {
+        setError(`${uploadErrors} photo(s) failed to upload. Save again or upload from the product page.`);
+      }
+      setMessage(uploadErrors ? "Product saved with photo errors" : "Saved");
+      if (!productId) router.replace(`/admin/products/${savedId}`);
+    } catch (err) {
+      const aborted = err instanceof DOMException && err.name === "AbortError";
+      setError(
+        aborted
+          ? "Save timed out. Check database connection and try again with a smaller photo."
+          : "Could not save product. Check your connection.",
+      );
+    } finally {
+      setBusy(false);
     }
-    setMessage("Saved");
-    if (!productId) router.replace(`/admin/products/${savedId}`);
   }
 
   async function uploadPhoto(file: File, targetProductId?: string) {
+    const sizeErr = photoSizeError(file);
+    if (sizeErr) {
+      setError(sizeErr);
+      return;
+    }
     const id = targetProductId || productId;
     if (!id) {
-      setPendingPhotos((current) => [...current, file]);
+      queuePhoto(file);
       return;
     }
-    const form = new FormData();
-    form.set("file", file);
-    form.set("productId", id);
-    const res = await fetch("/api/admin/upload", { method: "POST", body: form });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || "Upload failed");
-      return;
+    setBusy(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      form.set("productId", id);
+      const res = await fetchWithTimeout("/api/admin/upload", { method: "POST", body: form });
+      const data = (await res.json().catch(() => ({}))) as Image & { error?: string };
+      if (!res.ok) {
+        setError(data.error || "Upload failed");
+        return;
+      }
+      setImages((current) => [...current, data]);
+      setMessage("Photo uploaded");
+    } catch {
+      setError("Upload timed out. Use a smaller JPG (under 3MB).");
+    } finally {
+      setBusy(false);
     }
-    setImages((current) => [...current, data]);
   }
 
   async function removeImage(imageId: string) {
@@ -225,7 +308,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       <section className="soft-card p-6">
         <h2 className="font-semibold text-forest">Photographs</h2>
         <p className="mt-1 text-sm text-muted">
-          Choose photos anytime — new products upload to MySQL when you save. Or use{" "}
+          JPG/PNG/WebP under 3MB each. Queued photos upload when you save. Or use{" "}
           <a href="/admin/photos-by-bcn" className="text-emerald underline">
             Photos by BCN
           </a>{" "}
@@ -272,7 +355,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {message ? <p className="text-sm text-emerald">{message}</p> : null}
       <div className="flex flex-wrap gap-3">
-        <button disabled={busy} className="rounded-full bg-forest px-6 py-3 text-white">
+        <button disabled={busy} className="rounded-full bg-forest px-6 py-3 text-white disabled:opacity-70">
           {busy ? "Saving…" : "Save product"}
         </button>
         {productId ? (

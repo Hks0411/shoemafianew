@@ -4,6 +4,12 @@ import { adminOr401 } from "@/lib/auth/guard";
 import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { setVariationStock } from "@/lib/inventory";
+import {
+  duplicateBarcodesInList,
+  findBarcodeConflict,
+  formatProductSaveError,
+  normalizeBarcode,
+} from "@/lib/product-barcode";
 const updateSchema = z.object({
   name: z.string().min(1).max(180).optional(),
   description: z.string().max(8000).optional(),
@@ -48,6 +54,26 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const existing = await prisma.product.findUnique({ where: { id }, include: { variations: true } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  if (parsed.data.variations) {
+    const normalized = parsed.data.variations.map((v) => ({
+      ...v,
+      barcode: normalizeBarcode(v.barcode),
+      sku: v.sku?.trim() || null,
+    }));
+    const barcodes = normalized.map((v) => v.barcode);
+    const dup = duplicateBarcodesInList(barcodes);
+    if (dup) {
+      return NextResponse.json({ error: `Barcode “${dup}” is used twice on this product.` }, { status: 400 });
+    }
+    const keepIds = normalized.map((v) => v.id).filter(Boolean) as string[];
+    const conflict = await findBarcodeConflict(barcodes, keepIds);
+    if (conflict) {
+      return NextResponse.json({ error: conflict }, { status: 409 });
+    }
+    parsed.data.variations = normalized;
+  }
+
+  try {
   await prisma.$transaction(async (tx) => {
     await tx.product.update({
       where: { id },
@@ -72,8 +98,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             where: { id: variation.id },
             data: {
               size: variation.size,
-              sku: variation.sku || null,
-              barcode: variation.barcode || null,
+              sku: variation.sku,
+              barcode: variation.barcode,
               price: variation.price,
               salePrice: variation.salePrice ?? null,
             },
@@ -84,8 +110,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             data: {
               productId: id,
               size: variation.size,
-              sku: variation.sku || null,
-              barcode: variation.barcode || null,
+              sku: variation.sku,
+              barcode: variation.barcode,
               price: variation.price,
               salePrice: variation.salePrice ?? null,
               stock: variation.stock,
@@ -104,6 +130,10 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     include: { images: true, variations: true },
   });
   return NextResponse.json(product);
+  } catch (error) {
+    console.error("Update product failed", error);
+    return NextResponse.json({ error: formatProductSaveError(error) }, { status: 409 });
+  }
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
